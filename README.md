@@ -14,6 +14,8 @@
     - [Problem:](#problem-1)
   - [Using Redux:](#using-redux)
     - [Example 1:](#example-1)
+      - [React + Redux + JS:](#react--redux--js)
+      - [React + Redux + TS:](#react--redux--ts)
     - [Example 2:](#example-2)
     - [When to use:](#when-to-use-2)
 - [RTK Query:](#rtk-query)
@@ -234,6 +236,21 @@ export default function Child() {
 
 ### Example 1: 
 
+#### React + Redux + JS: 
+
+```js
+// src/stores.js
+
+import { configureStore } from "@reduxjs/toolkit";
+import likeReducer from "./likeSlice";
+
+export const store = configureStore({
+    reducer: {
+        likes: likeReducer,
+    },
+});
+```
+
 ```js
 // src/likeSlice.js
 
@@ -257,19 +274,6 @@ const likeSlice = createSlice({
 
 export const { increment, decrement, reset } = likeSlice.actions;
 export default likeSlice.reducer;
-```
-
-```js
-// src/stores.js
-
-import { configureStore } from "@reduxjs/toolkit";
-import likeReducer from "./likeSlice";
-
-export const store = configureStore({
-    reducer: {
-        likes: likeReducer,
-    },
-});
 ```
 
 ```js
@@ -346,6 +350,155 @@ export default function Child() {
 }
 ```
 
+
+#### React + Redux + TS: 
+
+```ts
+// src/store.ts
+
+import { configureStore } from "@reduxjs/toolkit";
+import likeReducer from "./likeSlice";
+
+export const store = configureStore({
+    reducer: {
+        likes: likeReducer,
+    },
+});
+
+
+// Infer the `RootState` and `AppDispatch` types from the store itself
+export type RootState = ReturnType<typeof store.getState>
+// Inferred type: {posts: PostsState, comments: CommentsState, users: UsersState}
+export type AppDispatch = typeof store.dispatch
+```
+
+```ts
+// src/likeSlice.js
+
+import { createSlice } from "@reduxjs/toolkit";
+import type { PayloadAction } from '@reduxjs/toolkit'
+
+// Define a type for the slice state
+interface CounterState {
+    value: number
+}
+
+// Define the initial state using that type
+const initialState: CounterState = {
+    value: 0,
+}
+
+export const likeSlice = createSlice({
+    name: "likes",
+    initialState,
+    reducers: {
+        increment: (state) => {
+            state.value += 1;
+        },
+        decrement: (state) => {
+            state.value -= 1;
+        },
+        reset: (state) => {
+            state.value = 0;
+        },
+        // Use the PayloadAction type to declare the contents of `action.payload`
+        incrementByAmount: (state, action: PayloadAction<number>) => {
+            state.value += action.payload
+        },
+    },
+});
+
+export const { increment, decrement, reset, incrementByAmount } = likeSlice.actions;
+export default likeSlice.reducer;
+```
+
+```ts
+// src/hooks.ts
+
+import { useDispatch, useSelector } from 'react-redux'
+import type { RootState, AppDispatch } from './store'
+
+// Use throughout your app instead of plain `useDispatch` and `useSelector`
+export const useAppDispatch = useDispatch.withTypes<AppDispatch>()
+export const useAppSelector = useSelector.withTypes<RootState>()
+```
+
+```ts
+// src/main.tsx
+
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import "./index.css";
+import { createBrowserRouter, RouterProvider } from "react-router";
+import App from "./App";
+import { store } from "./store";
+import { Provider } from "react-redux";
+
+const router = createBrowserRouter([
+  {
+    path: "/",
+    Component: App,
+  },
+]);
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <Provider store={store}>
+      <RouterProvider router={router} />
+    </Provider>
+  </StrictMode>
+);
+```
+
+```ts
+// src/App.tsx
+
+import Parent from "./Parent";
+
+export default function App() {
+  return <Parent />;
+}
+```
+
+```ts
+// src/Parent.tsx
+
+import Child from "./Child";
+
+export default function Parent() {
+    return <Child />;
+}
+```
+
+```js
+// src/Child.ts
+
+import { increment, decrement, reset } from "./likeSlice";
+import { useAppDispatch, useAppSelector } from "./hooks";
+
+export default function Child() {
+    const likes = useAppSelector((state) => state.likes.value);
+    const dispatch = useAppDispatch();
+
+    return (
+        <div>
+            <h2>Likes: {likes}</h2>
+
+            <button className="btn" onClick={() => dispatch(increment())}>
+                Like
+            </button>
+
+            <button className="btn" onClick={() => dispatch(decrement())}>
+                Dislike
+            </button>
+
+            <button className="btn" onClick={() => dispatch(reset())}>
+                Reset
+            </button>
+        </div>
+    );
+}
+```
 
 ### Example 2: 
 
