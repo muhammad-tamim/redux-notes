@@ -16,6 +16,8 @@
     - [Example 1:](#example-1)
     - [Example 2:](#example-2)
     - [When to use:](#when-to-use-2)
+- [RTK Query:](#rtk-query)
+  - [Example:](#example)
 
 # Installation:
 
@@ -487,3 +489,285 @@ export default function Child() {
 - Want to Avoid props drilling
 - Manage Complex Global state that needs to implement on multiple features
 
+
+# RTK Query: 
+RTK Query is a tool from Redux Toolkit that:
+- Fetches data
+- Caches it
+- Handles loading/error
+- Auto re-fetches
+
+We can think of it like: 
+- Redux Toolkit → manages client state
+- RTK Query → manages server state (API)
+
+
+## Example: 
+
+```js
+// src/stores.js
+
+import { configureStore } from "@reduxjs/toolkit";
+import { notesApi } from "./api/notesApi";
+
+export const store = configureStore({
+    reducer: {
+        [notesApi.reducerPath]: notesApi.reducer,
+    },
+    middleware: (getDefaultMiddleware) =>
+        getDefaultMiddleware().concat(notesApi.middleware),
+});
+```
+
+```js
+// src/api/notesApi.js
+
+import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+
+export const notesApi = createApi({
+    reducerPath: "notesApi",
+
+    baseQuery: fetchBaseQuery({
+        baseUrl: "http://localhost:3000", // your server
+    }),
+
+    tagTypes: ["Notes"],
+
+    endpoints: (builder) => ({
+        // ✅ GET ALL NOTES
+        getNotes: builder.query({
+            query: () => "/notes",
+            providesTags: ["Notes"],
+        }),
+
+        // ✅ GET SINGLE NOTE
+        getNote: builder.query({
+            query: (id) => `/notes/${id}`,
+            providesTags: (result, error, id) => [{ type: "Notes", id }],
+        }),
+
+        // ✅ CREATE NOTE
+        addNote: builder.mutation({
+            query: (note) => ({
+                url: "/notes",
+                method: "POST",
+                body: note,
+            }),
+            invalidatesTags: ["Notes"],
+        }),
+
+        // ✅ UPDATE NOTE
+        updateNote: builder.mutation({
+            query: ({ id, data }) => ({
+                url: `/notes/${id}`,
+                method: "PATCH",
+                body: data,
+            }),
+            invalidatesTags: (result, error, { id }) => [
+                { type: "Notes", id },
+                "Notes",
+            ],
+        }),
+
+        // ✅ DELETE NOTE
+        deleteNote: builder.mutation({
+            query: (id) => ({
+                url: `/notes/${id}`,
+                method: "DELETE",
+            }),
+            invalidatesTags: ["Notes"],
+        }),
+    }),
+});
+
+export const {
+    useGetNotesQuery,
+    useGetNoteQuery,
+    useAddNoteMutation,
+    useUpdateNoteMutation,
+    useDeleteNoteMutation,
+} = notesApi;
+```
+
+```js
+// src/main.jsx
+
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client';
+import './index.css'
+import { createBrowserRouter, RouterProvider } from 'react-router';
+import App from './App';
+import { store } from './store';
+import { Provider } from 'react-redux';
+
+
+const router = createBrowserRouter([
+  {
+    path: '/',
+    Component: App,
+  },
+])
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <Provider store={store}>
+      <RouterProvider router={router}></RouterProvider>
+    </Provider>
+  </StrictMode>,
+)
+```
+
+```js 
+// src/App.jsx
+
+import Notes from "./Notes";
+
+
+export default function App() {
+  return (
+    <div>
+      <h1>Notes App</h1>
+      <Notes />
+    </div>
+  );
+}
+```
+
+```js
+// src/notes.jsx
+
+import AddNote from "./AddNote";
+import { useGetNotesQuery } from "./api/notesApi";
+import NoteItem from "./NoteItem";
+
+
+export default function Notes() {
+    const { data: notes, isLoading, error } = useGetNotesQuery();
+
+    if (isLoading) return <p>Loading...</p>;
+    if (error) return <p>Error loading notes</p>;
+
+    return (
+        <div>
+            <h2>Notes</h2>
+
+            <AddNote />
+
+            {notes.map((note) => (
+                <NoteItem key={note._id} note={note} />
+            ))}
+        </div>
+    );
+}
+```
+
+```js
+// src/NoteItem.jsx
+
+import { useState } from "react";
+import {
+    useDeleteNoteMutation,
+    useUpdateNoteMutation,
+} from "./api/notesApi";
+
+export default function NoteItem({ note }) {
+    const [deleteNote, { isLoading: isDeleting }] = useDeleteNoteMutation();
+    const [updateNote, { isLoading: isUpdating }] = useUpdateNoteMutation();
+
+    const [isOpen, setIsOpen] = useState(false);
+
+    // local state for editing
+    const [name, setName] = useState(note.name);
+    const [description, setDescription] = useState(note.description);
+
+    const handleDelete = async () => {
+        await deleteNote(note._id);
+    };
+
+    const handleUpdate = async (e) => {
+        e.preventDefault();
+
+        await updateNote({
+            id: note._id,
+            data: { name, description },
+        });
+
+        setIsOpen(false); // close modal after update
+    };
+
+    return (
+        <div className="border p-4 my-2 rounded">
+            <h4 className="font-bold">{note.name}</h4>
+            <p>{note.description}</p>
+
+            <button className="btn btn-sm mr-2" onClick={() => setIsOpen(true)}>Edit</button>
+
+            <button className="btn btn-sm btn-error" onClick={handleDelete} disabled={isDeleting}>Delete</button>
+
+            {/* ✅ DaisyUI Modal */}
+            {isOpen && (
+                <dialog className="modal modal-open">
+                    <div className="modal-box">
+                        <h3 className="font-bold text-lg mb-4">Update Note</h3>
+
+                        <form onSubmit={handleUpdate} className="space-y-3">
+                            <input className="input input-bordered w-full" value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="Title" />
+
+                            <textarea className="textarea textarea-bordered w-full" value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="Description"
+                            />
+
+                            <div className="modal-action">
+                                <button type="button" className="btn" onClick={() => setIsOpen(false)} >Cancel </button>
+
+                                <button type="submit" className="btn btn-primary" disabled={isUpdating}>
+                                    {isUpdating ? "Updating..." : "Save"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </dialog>
+            )}
+        </div>
+    );
+}
+```
+
+```js
+// src/AddNote.jsx
+
+import { useState } from "react";
+import { useAddNoteMutation } from "./api/notesApi";
+
+export default function AddNote() {
+    const [name, setName] = useState("");
+    const [description, setDescription] = useState("");
+
+    const [addNote, { isLoading }] = useAddNoteMutation();
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
+        if (!name || !description) return;
+
+        await addNote({ name, description });
+
+        setName("");
+        setDescription("");
+    };
+
+    return (
+        <form onSubmit={handleSubmit}>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Title" />
+            <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" />
+
+            <button className="btn" disabled={isLoading}>Add</button>
+        </form>
+    );
+}
+```
+
+![alt text](image.png)
