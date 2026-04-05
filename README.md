@@ -13,6 +13,8 @@
     - [When to use:](#when-to-use-1)
     - [Problem:](#problem-1)
   - [Using Redux:](#using-redux)
+    - [Example 1:](#example-1)
+    - [Example 2:](#example-2)
     - [When to use:](#when-to-use-2)
 
 # Installation:
@@ -24,10 +26,11 @@ npm install @reduxjs/toolkit react-redux
 # Introduction: 
 
 ## What is Redux:
-Redux is a JS library for predictable and maintainable global state management. Means redux is a central place (store) where all of our app’s state lives, and we can update it in a predictable way. 
+Redux is a JavaScript library for predictable and centralized maintainable state management.
+ Means redux is a central place (store) where all of our app’s state lives, and we can update it in a predictable way. 
 
 ## What is Redux Toolkit:
-Redux Toolkit (RTK) is the official modern way to use Redux. It Built by the Redux team to fix all the problems by using raw redux.
+Redux Toolkit (RTK) is the official, recommended, modern way to use Redux. It Built by the Redux team to fix all the problems by using raw redux and simplifies it by reducing boilerplate and enforcing best practices.
 
 ## Redux vs Redux Toolkit:
 
@@ -227,18 +230,7 @@ export default function Child() {
 
 ## Using Redux:
 
-```js
-// src/stores.js
-
-import { configureStore } from "@reduxjs/toolkit";
-import likeReducer from "./likeSlice";
-
-export const store = configureStore({
-    reducer: {
-        likes: likeReducer,
-    },
-});
-```
+### Example 1: 
 
 ```js
 // src/likeSlice.js
@@ -263,6 +255,19 @@ const likeSlice = createSlice({
 
 export const { increment, decrement, reset } = likeSlice.actions;
 export default likeSlice.reducer;
+```
+
+```js
+// src/stores.js
+
+import { configureStore } from "@reduxjs/toolkit";
+import likeReducer from "./likeSlice";
+
+export const store = configureStore({
+    reducer: {
+        likes: likeReducer,
+    },
+});
 ```
 
 ```js
@@ -339,6 +344,146 @@ export default function Child() {
 }
 ```
 
+
+### Example 2: 
+
+```js
+// src/todoSlice.js
+
+import { createSlice } from "@reduxjs/toolkit";
+
+const todoSlice = createSlice({
+    name: "todos",
+    initialState: { value: [] },
+    reducers: {
+        addTodo: (state, action) => {
+            state.value.push(action.payload);
+        },
+        deleteTodo: (state, action) => {
+            state.value = state.value.filter((todo, index) => index !== action.payload);
+        },
+        clearTodos: (state) => {
+            state.value = [];
+        },
+    },
+});
+
+export const { addTodo, deleteTodo, clearTodos } = todoSlice.actions;
+export default todoSlice.reducer;
+```
+
+
+```js
+// src/stores.js
+
+import { configureStore } from "@reduxjs/toolkit";
+// import likeReducer from "./likeSlice";
+import todoReducer from "./todoSlice"
+
+export const store = configureStore({
+    reducer: {
+        // likes: likeReducer,
+        todos: todoReducer
+    },
+});
+```
+
+```js
+// src/main.jsx
+
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client';
+import './index.css'
+import { createBrowserRouter, RouterProvider } from 'react-router';
+import App from './App';
+import { store } from './store';
+import { Provider } from 'react-redux';
+
+
+const router = createBrowserRouter([
+  {
+    path: '/',
+    Component: App,
+  },
+])
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <Provider store={store}>
+      <RouterProvider router={router}></RouterProvider>
+    </Provider>
+  </StrictMode>,
+)
+```
+
+```js
+// src/App.jsx
+
+import React from "react";
+import Parent from "./Parent";
+
+export default function App() {
+
+  return (
+    <Parent />
+  );
+}
+```
+
+```js
+// src/Parent.jsx
+
+import Child from "./Child";
+
+export default function Parent() {
+    return (
+        <Child />
+    );
+}
+```
+
+```js
+// src/Child.jsx
+
+import { useDispatch, useSelector } from "react-redux";
+import { addTodo, deleteTodo, clearTodos } from "./todoSlice";
+import { useState } from "react";
+
+export default function Child() {
+    const [text, setText] = useState("");
+    const todos = useSelector((state) => state.todos.value);
+    const dispatch = useDispatch();
+
+    return (
+        <div>
+            <h2>Todo List</h2>
+
+            <input className="input" value={text} onChange={(e) => setText(e.target.value)} />
+
+            <button className="btn" onClick={() => {
+                if (!text) return;
+                dispatch(addTodo(text));
+                setText("");
+            }}>Add</button>
+
+            <button className="btn" onClick={() => dispatch(clearTodos())}>
+                Clear All
+            </button>
+
+            <ul>
+                {todos.map((todo, index) => (
+                    <li key={index}>
+                        {todo}
+                        <button className="btn" onClick={() => dispatch(deleteTodo(index))}>❌</button>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+```
+
 ### When to use:
 - Want to Avoid props drilling
 - Manage Complex Global state that needs to implement on multiple features
+
