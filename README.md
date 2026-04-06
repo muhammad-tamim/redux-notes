@@ -3,8 +3,14 @@
 - [Installation:](#installation)
 - [Introduction:](#introduction)
   - [What is Redux:](#what-is-redux)
-  - [What is Redux Toolkit:](#what-is-redux-toolkit)
-  - [Redux vs Redux Toolkit:](#redux-vs-redux-toolkit)
+  - [What Problem Redux solves:](#what-problem-redux-solves)
+  - [How Redux works:](#how-redux-works)
+    - [Store:](#store)
+    - [Slice:](#slice)
+    - [Reducers:](#reducers)
+      - [Action:](#action)
+      - [Reducer Function:](#reducer-function)
+    - [useSelector() and useDispatch:](#useselector-and-usedispatch)
 - [Different ways to manage state in react:](#different-ways-to-manage-state-in-react)
   - [Using Props drilling:](#using-props-drilling)
     - [When to use:](#when-to-use)
@@ -13,11 +19,12 @@
     - [When to use:](#when-to-use-1)
     - [Problem:](#problem-1)
   - [Using Redux:](#using-redux)
+    - [When to use:](#when-to-use-2)
     - [Example 1:](#example-1)
       - [React + Redux + JS:](#react--redux--js)
       - [React + Redux + TS:](#react--redux--ts)
     - [Example 2:](#example-2)
-    - [When to use:](#when-to-use-2)
+      - [React + redux + JS:](#react--redux--js-1)
 - [RTK Query:](#rtk-query)
   - [Example:](#example)
 
@@ -30,25 +37,204 @@ npm install @reduxjs/toolkit react-redux
 # Introduction: 
 
 ## What is Redux:
-Redux is a JavaScript library for predictable and centralized maintainable state management.
- Means redux is a central place (store) where all of our app’s state lives, and we can update it in a predictable way. 
+Redux is a JavaScript library for predictable, centralized and maintainable state management. Means redux is a central place (store) where all of our app’s state lives, and we can update it in a predictable way. 
 
-## What is Redux Toolkit:
-Redux Toolkit (RTK) is the official, recommended, modern way to use Redux. It Built by the Redux team to fix all the problems by using raw redux and simplifies it by reducing boilerplate and enforcing best practices.
+We use redux to our codes using Redux Toolkit (RTK). It is the official, recommended, modern way to use Redux. It Built by the Redux team to fix all the problems by using raw redux and simplifies it by reducing boilerplate and enforcing best practices.
 
-## Redux vs Redux Toolkit:
+## What Problem Redux solves:
+Redux gives us a way to communicate our state from a parent to deeply nested child or another features directly without using context api and props drilling. means with redux our Project Manner can directly communicate to our intern developer without communicating project manager, Team Leader, Sr Developer, Developer, and Junior Developer. 
 
-| Feature        | Redux (Old) 😓 | Redux Toolkit 🚀 |
-| -------------- | ------------- | --------------- |
-| Boilerplate    | High          | Very low        |
-| Learning curve | Hard          | Easier          |
-| Setup          | Manual        | Automatic       |
-| Best practice  | Optional      | Enforced        |
-| Performance    | Good          | Better          |
+![alt text](./assets/images/how-redux-works.png)
 
+## How Redux works: 
+
+### Store: 
+The central place where your entire app state lives. It's Responsibility to:
+- Holds state
+- Runs reducers when actions are dispatched by useDespatch()
+
+```js
+// store.js
+import { configureStore } from "@reduxjs/toolkit";
+
+import likeReducer from "./likeSlice";
+import userReducer from "./userSlice";
+import productReducer from "./productSlice";
+
+export const store = configureStore({
+  reducer: {
+    likes: likeReducer,
+    user: userReducer,
+    products: productReducer,
+  },
+});
+```
+
+### Slice: 
+A Individual feature module that contains:
+- state
+- reducers
+- actions
+
+```js
+// likeSlice.js
+import { createSlice } from "@reduxjs/toolkit";
+
+const likeSlice = createSlice({
+  name: "likes",
+  initialState: { value: 0 },
+  reducers: {
+    increment: (state) => {
+      state.value += 1;
+    },
+    decrement: (state) => {
+      state.value -= 1;
+    },
+  },
+});
+
+export const { increment, decrement } = likeSlice.actions;
+export default likeSlice.reducer;
+```
+
+```js
+import { createSlice } from "@reduxjs/toolkit";
+
+const userSlice = createSlice({
+  name: "user",
+  initialState: { name: "" },
+  reducers: {
+    setUser: (state, action) => {
+      state.name = action.payload;
+    },
+    removeUser: (state, action) => {
+        state.name = ""
+    }
+  },
+});
+
+export const { setUser, removeUser } = userSlice.actions;
+export default userSlice.reducer;
+```
+
+```js
+import { createSlice } from "@reduxjs/toolkit";
+
+const productSlice = createSlice({
+  name: "products",
+  initialState: { items: [] },
+  reducers: {
+    addProduct: (state, action) => {
+      state.items.push(action.payload);
+    },
+  },
+});
+
+export const { addProduct } = productSlice.actions;
+export default productSlice.reducer;
+```
+
+
+
+### Reducers: 
+A object that holds all actions for a individual slice. Inside it, 
+- Keys = action names
+- Values = reducer functions
+
+```js
+reducers: {
+  increment: (state) => { state.value++ },
+  decrement: (state) => { state.value-- }
+}
+```
+
+#### Action:
+A object that take reducer function. 
+
+Below are all actions: 
+```js
+increment: (state) => { state.value++ },
+```
+
+```js
+increment: (state) => {
+    state.value += 1;
+},
+```
+
+```js
+setUser: (state, action) => {
+    state.name = action.payload;
+},
+```
+
+```js
+addProduct: (state, action) => {
+    state.items.push(action.payload);
+},
+```
+
+#### Reducer Function: 
+A function that updates state based on action. It have two parameter: 
+- state → current data
+- action → what happened
+
+Syntax:
+```js
+(state, action) => newState
+```
+
+```js
+(state) => { state.value++ }
+```
+
+```js
+(state) => {
+    state.value += 1;
+}
+```
+
+```js
+(state, action) => {
+    state.items.push(action.payload);
+}
+```
+
+### useSelector() and useDispatch: 
+
+- useSelector(): Reads data from the store
+- useDispatch(): Sends actions to the store
+
+```js
+import { useDispatch, useSelector } from "react-redux";
+import { decrement, increment, reset } from "./likeSlice";
+
+export default function Child() {
+    const likes = useSelector((state) => state.likes.value);
+    const dispatch = useDispatch();
+    return (
+        <div>
+            <h2>Likes: {likes}</h2>
+            <button className="btn" onClick={() => dispatch(increment())}>Like</button>
+            <button className="btn" onClick={() => dispatch(decrement())}>Dislike</button>
+            <button className="btn" onClick={() => dispatch(reset())}>Reset</button>
+        </div>
+    );
+}
+```
 
 # Different ways to manage state in react: 
+
+
 ## Using Props drilling: 
+
+### When to use:
+- Small apps
+- if state is LOCAL and mostly used by 1–3 levels deep only
+### Problem: 
+- Becomes messy when deeply nested
+- we also need to drilling the props for all components to get the child even intermediate components don’t need it
+
 
 ```js
 // src/main.jsx
@@ -116,14 +302,16 @@ export default function Child({ likes, setLikes }) {
 }
 ```
 
-### When to use:
-- Small apps
-- if state is LOCAL and mostly used by 1–3 levels deep only
-### Problem: 
-- Becomes messy when deeply nested
-- we also need to drilling the props for all components to get the child even intermediate components don’t need it
 
 ## Using Context API: 
+
+### When to use:
+- Want to Avoid props drilling
+- Manage Simple Global state (theme, auth, etc.)
+
+### Problem:
+- Can cause unnecessary re-renders
+- Not great for complex logic
 
 
 ```js
@@ -224,39 +412,22 @@ export default function Child() {
 }
 ```
 
+## Using Redux:
+
 ### When to use:
 - Want to Avoid props drilling
-- Manage Simple Global state (theme, auth, etc.)
-
-### Problem:
-- Can cause unnecessary re-renders
-- Not great for complex logic
-
-## Using Redux:
+- Manage Complex Global state that needs to implement on multiple features
 
 ### Example 1: 
 
 #### React + Redux + JS: 
 
 ```js
-// src/stores.js
-
-import { configureStore } from "@reduxjs/toolkit";
-import likeReducer from "./likeSlice";
-
-export const store = configureStore({
-    reducer: {
-        likes: likeReducer,
-    },
-});
-```
-
-```js
 // src/likeSlice.js
 
 import { createSlice } from "@reduxjs/toolkit";
 
-const likeSlice = createSlice({
+export const likeSlice = createSlice({
     name: "likes",
     initialState: { value: 0 },
     reducers: {
@@ -275,6 +446,23 @@ const likeSlice = createSlice({
 export const { increment, decrement, reset } = likeSlice.actions;
 export default likeSlice.reducer;
 ```
+
+```js
+// src/stores.js
+
+import { configureStore } from "@reduxjs/toolkit";
+import likeReducer from "./likeSlice";
+// or
+// import likeSlice from "./likeSlice"
+
+export const store = configureStore({
+    reducer: {
+        likes: likeReducer,
+        // likes: likeSlice
+    },
+});
+```
+
 
 ```js
 // src/main.jsx
@@ -354,25 +542,6 @@ export default function Child() {
 #### React + Redux + TS: 
 
 ```ts
-// src/store.ts
-
-import { configureStore } from "@reduxjs/toolkit";
-import likeReducer from "./likeSlice";
-
-export const store = configureStore({
-    reducer: {
-        likes: likeReducer,
-    },
-});
-
-
-// Infer the `RootState` and `AppDispatch` types from the store itself
-export type RootState = ReturnType<typeof store.getState>
-// Inferred type: {posts: PostsState, comments: CommentsState, users: UsersState}
-export type AppDispatch = typeof store.dispatch
-```
-
-```ts
 // src/likeSlice.js
 
 import { createSlice } from "@reduxjs/toolkit";
@@ -410,6 +579,25 @@ export const likeSlice = createSlice({
 
 export const { increment, decrement, reset, incrementByAmount } = likeSlice.actions;
 export default likeSlice.reducer;
+```
+
+```ts
+// src/store.ts
+
+import { configureStore } from "@reduxjs/toolkit";
+import likeReducer from "./likeSlice";
+
+export const store = configureStore({
+    reducer: {
+        likes: likeReducer,
+    },
+});
+
+
+// Infer the `RootState` and `AppDispatch` types from the store itself
+export type RootState = ReturnType<typeof store.getState>
+// Inferred type: {posts: PostsState, comments: CommentsState, users: UsersState}
+export type AppDispatch = typeof store.dispatch
 ```
 
 ```ts
@@ -502,12 +690,14 @@ export default function Child() {
 
 ### Example 2: 
 
+#### React + redux + JS:
+
 ```js
 // src/todoSlice.js
 
 import { createSlice } from "@reduxjs/toolkit";
 
-const todoSlice = createSlice({
+export const todoSlice = createSlice({
     name: "todos",
     initialState: { value: [] },
     reducers: {
@@ -638,9 +828,6 @@ export default function Child() {
 }
 ```
 
-### When to use:
-- Want to Avoid props drilling
-- Manage Complex Global state that needs to implement on multiple features
 
 
 # RTK Query: 
@@ -923,4 +1110,4 @@ export default function AddNote() {
 }
 ```
 
-![alt text](image.png)
+![alt text](./assets/images/rtk-query-example.png)
