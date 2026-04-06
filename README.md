@@ -25,6 +25,7 @@
       - [React + Redux + TS:](#react--redux--ts)
     - [Example 2:](#example-2)
       - [React + redux + JS:](#react--redux--js-1)
+- [Async Thunk:](#async-thunk)
 - [RTK Query:](#rtk-query)
   - [Example:](#example)
 
@@ -526,6 +527,7 @@ import { decrement, increment, reset } from "./likeSlice";
 
 export default function Child() {
     const likes = useSelector((state) => state.likes.value);
+    // const likes = useSelector((myStore) => myStore.likes.value)
     const dispatch = useDispatch();
     return (
         <div>
@@ -828,6 +830,262 @@ export default function Child() {
 }
 ```
 
+# Async Thunk: 
+Redux is synchronous by default, so reducers must be pure (no API calls inside reducers) but sometimes real apps need API calls. createAsyncThunk() solves this cleanly. It is a Redux Toolkit utility that runs async logic (API calls) inside redux. 
+
+It generates 3 actions automatically:
+
+| Phase     | Meaning         |
+| --------- | --------------- |
+| pending   | request started |
+| fulfilled | request success |
+| rejected  | request failed  |
+
+
+```js
+// src/redux/userThunks
+
+import { createAsyncThunk } from "@reduxjs/toolkit";
+
+// Fetch all users
+export const fetchUsers = createAsyncThunk(
+    "users/fetchUsers",
+    async (_, thunkAPI) => {
+        try {
+            const res = await fetch("https://jsonplaceholder.typicode.com/users");
+
+            if (!res.ok) {
+                return thunkAPI.rejectWithValue("Failed to fetch users");
+            }
+
+            const data = await res.json();
+            return data;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(error.message);
+        }
+    }
+);
+
+export const fetchUserById = createAsyncThunk(
+    "users/fetchUserById",
+    async (id, thunkAPI) => {
+        try {
+            const res = await fetch(`https://jsonplaceholder.typicode.com/users/${id}`);
+
+            if (!res.ok) {
+                return thunkAPI.rejectWithValue("Failed to fetch user details");
+            }
+
+            const data = await res.json();
+            return data;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(error.message);
+        }
+    }
+);
+```
+
+```js
+// src/redux/userSlice.js
+
+import { createSlice } from "@reduxjs/toolkit";
+import { fetchUserById, fetchUsers } from "./userThunks";
+
+const initialState = {
+    users: {
+        list: [],
+        loading: false,
+        error: null
+    },
+    userDetails: {
+        data: null,
+        loading: false,
+        error: null
+    }
+};
+
+export const userSlice = createSlice({
+    name: "users",
+    initialState,
+    reducers: {},
+
+    extraReducers: (builder) => {
+        builder
+            // USERS LIST
+            .addCase(fetchUsers.pending, (state) => {
+                state.users.loading = true;
+                state.users.error = null;
+            })
+
+            .addCase(fetchUsers.fulfilled, (state, action) => {
+                state.users.loading = false;
+                state.users.list = action.payload;
+            })
+
+            .addCase(fetchUsers.rejected, (state, action) => {
+                state.users.loading = false;
+                state.users.error = action.payload;
+            })
+
+            // USER DETAILS
+            .addCase(fetchUserById.pending, (state) => {
+                state.userDetails.loading = true;
+                state.userDetails.error = null;
+                state.userDetails.data = null;
+            })
+
+            .addCase(fetchUserById.fulfilled, (state, action) => {
+                state.userDetails.loading = false;
+                state.userDetails.data = action.payload;
+            })
+
+            .addCase(fetchUserById.rejected, (state, action) => {
+                state.userDetails.loading = false;
+                state.userDetails.error = action.payload;
+            });
+    },
+});
+
+export default userSlice.reducer;
+```
+
+```js
+// src/redux/store.js
+
+import { configureStore } from "@reduxjs/toolkit";
+import userSlice from "./userSlice";
+
+export const store = configureStore({
+    reducer: {
+        users: userSlice,
+    },
+});
+```
+
+```js
+// src/main.jsx
+
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client';
+import './index.css'
+import { createBrowserRouter, RouterProvider } from 'react-router';
+import App from './App';
+import { store } from './redux/store';
+import { Provider } from 'react-redux';
+import UserDetails from './UserDetails';
+
+
+const router = createBrowserRouter([
+  {
+    path: '/',
+    Component: App
+  },
+  {
+    path: '/user-details/:id',
+    Component: UserDetails
+  }
+])
+
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <Provider store={store}>
+      <RouterProvider router={router}></RouterProvider>
+    </Provider>
+  </StrictMode>,
+)
+```
+
+```js
+// src/App.jsx
+
+import React from "react";
+import Users from "./Users";
+
+export default function App() {
+
+  return (
+    <Users></Users>
+  );
+}
+```
+
+```js
+// src/Users.jsx
+
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Link } from "react-router";
+import { fetchUsers } from "./redux/userThunks";
+
+export default function Users() {
+    const dispatch = useDispatch();
+
+    const { list, loading, error } = useSelector((state) => state.users.users);
+
+    useEffect(() => {
+        dispatch(fetchUsers());
+    }, [dispatch]);
+
+
+    if (loading) return <p>Loading users...</p>;
+
+    if (error) return <p style={{ color: "red" }}>{error}</p>;
+
+    return (
+        <div>
+            <h2>Users</h2>
+
+            <ul>
+                {list.map((user) => (
+                    <li key={user.id}>
+                        {user.name} — {user.email} - <Link to={`/user-details/${user.id}`}>Details</Link>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+```
+
+```js
+// src/UserDetails.jsx
+
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useParams } from "react-router";
+import { fetchUserById } from "./redux/userThunks";
+
+export default function UserDetails() {
+    const { id } = useParams();
+    const dispatch = useDispatch();
+
+    const { data, loading, error } = useSelector((state) => state.users.userDetails);
+
+    useEffect(() => {
+        dispatch(fetchUserById(id));
+    }, [dispatch, id]);
+
+    if (loading) return <p>Loading user details...</p>;
+    if (error) return <p className="text-red-500">{error}</p>;
+
+    if (!data) return null;
+
+    return (
+        <div>
+            <h2>User Details</h2>
+
+            <p><b>Name:</b> {data.name}</p>
+            <p><b>Email:</b> {data.email}</p>
+            <p><b>Phone:</b> {data.phone}</p>
+            <p><b>Website:</b> {data.website}</p>
+            <p><b>Company:</b> {data.company?.name}</p>
+        </div>
+    );
+}
+```
+
+Note: For most of the case use don't use data fetching using redux, because of tanstack query.
 
 
 # RTK Query: 
